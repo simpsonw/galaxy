@@ -9,7 +9,7 @@ drmaa
 statsd
 docker
 azure-storage==0.32.0
-# PyRods not in PyPI
+python-irodsclient
 python-ldap==2.4.44
 python-pam
 galaxycloudrunner

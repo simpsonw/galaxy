@@ -1,7 +1,7 @@
 """
 Object Store plugin for the Integrated Rule-Oriented Data Store (iRODS)
 
-The module is named rods to avoid conflicting with the PyRods module, irods
+The module is named rods to avoid conflicting with the python-irodsclient module, irods
 """
 
 import logging
@@ -28,7 +28,7 @@ from ..objectstore import (
     local_extra_dirs
 )
 
-IRODS_IMPORT_MESSAGE = ('The Python irods package is required to use this '
+IRODS_IMPORT_MESSAGE = ('The python-irodsclient package is required to use this '
                         'feature, please install it')
 
 log = logging.getLogger(__name__)
