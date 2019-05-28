@@ -33,14 +33,62 @@ IRODS_IMPORT_MESSAGE = ('The python-irodsclient package is required to use this 
 
 log = logging.getLogger(__name__)
 
+def parse_config_xml(config_xml):
+    try:
+        a_xml = config_xml.findall('auth')[0]
+        user = a_xml.get('user')
+        password = a_xml.get('password')
+
+        c_xml = config_xml.findall('connection')[0]
+        host = c_xml.get('host')
+        port = c_xml.get('port')
+        zone = c_xml.get('zone')
+
+        tag, attrs = 'extra_dir', ('type', 'path')
+        extra_dirs = config_xml.findall(tag)
+        if not extra_dirs:
+            msg = 'No {tag} element in XML tree'.format(tag=tag)
+            log.error(msg)
+            raise Exception(msg)
+        extra_dirs = [dict(((k, e.get(k)) for k in attrs)) for e in extra_dirs]
+
+        return {
+            'auth': {
+                'user': user,
+                'password': password,
+            },
+            'connection': {
+                'host': host,
+                'port': port,
+                'zone': zone,
+            }
+        }
+    except Exception:
+        # Toss it back up after logging, we can't continue loading at this point.
+        log.exception("Malformed ObjectStore Configuration XML -- unable to continue")
+        raise
+
 
 class IRODSObjectStore(DiskObjectStore):
     """
     Galaxy object store based on iRODS
     """
 
-    def __init__(self, config, file_path=None, extra_dirs=None):
-        super(IRODSObjectStore, self).__init__(config, file_path=file_path, extra_dirs=extra_dirs)
+    store_type = 'irods'
+
+    def __init__(self, config, config_dict):
+        super(IRODSObjectStore, self).__init__(config, config_dict)
+
+        auth_dict = config_dict['auth']
+        connection_dict = config_dict['connection']
+
+        self.user = auth_dict['user']
+        self.password = auth_dict['password']
+
+        self.host = connection_dict['host']
+        self.port = int(connection_dict['port'])
+        self.zone = connection_dict['zone']
+
         assert irods is not None, IRODS_IMPORT_MESSAGE
         self.cache_path = config.object_store_cache_path
         self.default_resource = config.irods_default_resource or None
@@ -73,6 +121,28 @@ class IRODSObjectStore(DiskObjectStore):
             self.default_resource = self.rods_env.rodsDefResource
 
         log.info("iRODS data for this instance will be stored in collection: %s, resource: %s", self.root_collection_path, self.default_resource)
+
+    @classmethod
+    def parse_xml(clazz, config_xml):
+        return parse_config_xml(config_xml)
+
+    def _config_to_dict(self):
+        return {
+            'auth': {
+                'user': self.user,
+                'password': self.password,
+            },
+            'connection': {
+                'host': self.host,
+                'port': self.port,
+                'zone': self.zone,
+            }
+        }
+
+    def to_dict(self):
+        as_dict = super(IRODSObjectStore, self).to_dict()
+        as_dict.update(self._config_to_dict())
+        return as_dict
 
     def __get_rods_path(self, obj, base_dir=None, dir_only=False, extra_dir=None, extra_dir_at_root=False, alt_name=None, strip_dat=True, **kwargs):
         # extra_dir should never be constructed from provided data but just

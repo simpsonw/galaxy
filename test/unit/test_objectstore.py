@@ -15,6 +15,7 @@ from galaxy.objectstore.azure_blob import AzureBlobObjectStore
 from galaxy.objectstore.cloud import Cloud
 from galaxy.objectstore.pithos import PithosObjectStore
 from galaxy.objectstore.s3 import S3ObjectStore
+from galaxy.objectstore.rods import IRODSObjectStore
 from galaxy.util import directory_hash_id
 
 
@@ -363,6 +364,11 @@ class UnitializedCloudObjectStore(Cloud):
     def _initialize(self):
         pass
 
+
+class UnitializedIRODSObjectStore(IRODSObjectStore):
+
+    def _initialize(self):
+        pass
 
 PITHOS_TEST_CONFIG = """<?xml version="1.0"?>
 <object_store type="pithos">
@@ -737,6 +743,48 @@ def test_config_parse_azure():
 
             extra_dirs = as_dict["extra_dirs"]
             assert len(extra_dirs) == 2
+
+IRODS_TEST_CONFIG = """<object_store type="irods">
+  <connection host="example.com" port="1234" zone="example_zone" />
+  <auth user="irods_user" password="irods_password" />
+  <extra_dir type="temp" path="database/irods_temp"/>
+</object_store>
+"""
+
+
+IRODS_TEST_CONFIG_YAML = """
+type: irods
+auth:
+  user: irods_user
+  password: irods_password
+
+connection:
+  host: example.com
+  port: 1234
+  zone: example_zone
+"""
+
+def test_config_parse_irods():
+    for config_str in [IRODS_TEST_CONFIG, IRODS_TEST_CONFIG_YAML]:
+        with TestConfig(config_str, clazz=UnitializedIRODSObjectStore) as (directory, object_store):
+            as_dict = object_store.to_dict()
+            assert object_store.user == "irods_user"
+            assert object_store.password == "irods_password"
+
+            assert object_store.host == "example.com"
+            assert object_store.port == 1234
+            assert object_store.zone == "example_zone"
+
+            as_dict = object_store.to_dict()
+            _assert_has_keys(as_dict, ["auth", "connection", "type"])
+
+            _assert_key_has_value(as_dict, "type", "irods")
+
+            auth_dict = as_dict["auth"]
+            connection_dict = as_dict["connection"]
+
+            _assert_key_has_value(auth_dict, "user", "irods_user")
+            _assert_key_has_value(auth_dict, "password", "irods_password")
 
 
 class TestConfig(object):
